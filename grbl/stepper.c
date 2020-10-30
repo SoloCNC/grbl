@@ -92,6 +92,9 @@ typedef struct {
   #ifdef VARIABLE_SPINDLE
     uint8_t spindle_pwm;
   #endif
+  #ifdef ENABLE_BACKLASH_COMPENSATION
+    uint8_t backlash_motion;
+  #endif
 } segment_t;
 static segment_t segment_buffer[SEGMENT_BUFFER_SIZE];
 
@@ -423,8 +426,15 @@ ISR(TIMER1_COMPA_vect)
       st.step_outbits_dual = (1<<DUAL_STEP_BIT);
     #endif
     st.counter_x -= st.exec_block->step_event_count;
-    if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys_position[X_AXIS]--; }
-    else { sys_position[X_AXIS]++; }
+    #ifdef ENABLE_BACKLASH_COMPENSATION
+      if(st.exec_segment->backlash_motion == 0){
+        if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys_position[X_AXIS]--; }
+        else { sys_position[X_AXIS]++; }
+      }
+    #else
+      if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys_position[X_AXIS]--; }
+      else { sys_position[X_AXIS]++; }
+    #endif
   }
   #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_y += st.steps[Y_AXIS];
@@ -437,8 +447,15 @@ ISR(TIMER1_COMPA_vect)
       st.step_outbits_dual = (1<<DUAL_STEP_BIT);
     #endif
     st.counter_y -= st.exec_block->step_event_count;
-    if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys_position[Y_AXIS]--; }
-    else { sys_position[Y_AXIS]++; }
+    #ifdef ENABLE_BACKLASH_COMPENSATION
+      if(st.exec_segment->backlash_motion == 0){
+        if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys_position[Y_AXIS]--; }
+        else { sys_position[Y_AXIS]++; }
+      }
+    #else
+      if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys_position[Y_AXIS]--; }
+      else { sys_position[Y_AXIS]++; }
+    #endif
   }
   #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_z += st.steps[Z_AXIS];
@@ -448,8 +465,15 @@ ISR(TIMER1_COMPA_vect)
   if (st.counter_z > st.exec_block->step_event_count) {
     st.step_outbits |= (1<<Z_STEP_BIT);
     st.counter_z -= st.exec_block->step_event_count;
-    if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys_position[Z_AXIS]--; }
-    else { sys_position[Z_AXIS]++; }
+    #ifdef ENABLE_BACKLASH_COMPENSATION
+      if(st.exec_segment->backlash_motion == 0){
+        if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys_position[Z_AXIS]--; }
+        else { sys_position[Z_AXIS]++; }
+      }
+    #else
+      if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys_position[Z_AXIS]--; }
+      else { sys_position[Z_AXIS]++; }
+    #endif
   }
 
   // During a homing cycle, lock out and prevent desired axes from moving.
@@ -851,7 +875,10 @@ void st_prep_buffer()
 
     // Set new segment to point to the current segment data block.
     prep_segment->st_block_index = prep.st_block_index;
-
+    #ifdef ENABLE_BACKLASH_COMPENSATION
+  		prep_segment->backlash_motion = pl_block->backlash_motion;
+    #endif
+    
     /*------------------------------------------------------------------------------------
         Compute the average velocity of this new segment by determining the total distance
       traveled over the segment time DT_SEGMENT. The following code first attempts to create

@@ -675,6 +675,9 @@
 // #define DUAL_AXIS_CONFIG_CNC_SHIELD_CLONE  // Uncomment to select. Comment other configs.
 
 
+// Backlash Compensation
+#define ENABLE_BACKLASH_COMPENSATION
+
 /* ---------------------------------------------------------------------------------------
    OEM Single File Configuration Option
 
